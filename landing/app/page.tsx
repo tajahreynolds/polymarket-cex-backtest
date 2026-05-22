@@ -1,20 +1,7 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type SpreadPoint = { t: number; spread: number }
-type FaqItem = { q: string; a: string }
+import LiveDemo from './components/LiveDemo'
+import FreeKeyForm from './components/FreeKeyForm'
+import CheckoutButton from './components/CheckoutButton'
+import Faq from './components/Faq'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -44,30 +31,41 @@ const FEATURES = [
   },
 ]
 
-const FAQ_ITEMS: FaqItem[] = [
+type PricingTier = {
+  name: string
+  price: string
+  signals: string
+  protocols: string[]
+  extras: string[]
+  highlight: boolean
+  bestValue?: boolean
+}
+
+const TIERS: PricingTier[] = [
   {
-    q: 'How is this different from Prediction Hunt?',
-    a: 'Prediction Hunt aggregates crowd sentiment. EdgeSignal cross-references live CEX price data (Binance spot) to derive an implied probability anchored to real-world derivatives markets. The spread between those two numbers is your edge.',
+    name: 'Free',
+    price: '$0/mo',
+    signals: '100 signals/day',
+    protocols: ['REST'],
+    extras: ['No credit card', 'All BTC-Yes contracts', 'Community support'],
+    highlight: false,
   },
   {
-    q: 'What contracts do you cover?',
-    a: 'Currently BTC up/down on Polymarket (the monthly settlement contracts). ETH and SOL coverage coming soon. Signal volume scales with Binance liquidity, so BTC is the natural starting point.',
+    name: 'Core',
+    price: '$49/mo',
+    signals: '10K signals/day',
+    protocols: ['REST', 'SSE'],
+    extras: ['Historical data (7 days)', 'Email support', 'SLA 99.5%'],
+    highlight: true,
   },
   {
-    q: "What does 'edge_bps' mean?",
-    a: "Basis points of expected profit after accounting for Polymarket taker fees (2%), estimated slippage on the exit leg, and our model's confidence discount. 100 bps = 1%.",
-  },
-  {
-    q: 'How do I authenticate?',
-    a: 'Pass your API key as a Bearer token in the Authorization header: Authorization: Bearer <your_key>. Keys are issued immediately on signup. Free tier keys work on REST endpoints; Core and Pro unlock SSE and WebSocket.',
-  },
-  {
-    q: 'Is there a free tier?',
-    a: 'Yes. The Free tier gives you 100 signals per day via REST, no credit card required. It covers all current BTC up/down contracts on polymarket so you can validate the signal quality before upgrading.',
-  },
-  {
-    q: "Can't I just build this myself?",
-    a: "Yes, and you should! The core idea is a 40-line Go script. What takes months is the production infrastructure: reconnect logic for both WebSockets, a conversion model that handles low-liquidity Binance periods without blowing up, fee/slippage calibration that doesn't over-state edge, and keeping it running at 3am when Polymarket restarts its CLOB. Free tier exists so you can compare your build against ours before paying.",
+    name: 'Pro',
+    price: '$149/mo',
+    signals: 'Unlimited',
+    protocols: ['REST', 'SSE', 'WebSocket'],
+    extras: ['Full history', 'Slack support', 'SLA 99.9%', 'Custom contract coverage'],
+    highlight: false,
+    bestValue: true,
   },
 ]
 
@@ -98,10 +96,6 @@ function Nav() {
       <a
         href="#pricing"
         className="es-btn-accent"
-        onClick={(e) => {
-          e.preventDefault()
-          document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }}
         style={{
           background: 'var(--accent)',
           color: '#000',
@@ -158,10 +152,6 @@ function Hero() {
         <a
           href="#pricing"
           className="es-btn-accent"
-          onClick={(e) => {
-            e.preventDefault()
-            document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }}
           style={{
             background: 'var(--accent)',
             color: '#000',
@@ -231,84 +221,6 @@ function Hero() {
   )
 }
 
-function LiveDemo() {
-  const [data, setData] = useState<SpreadPoint[]>([])
-
-  useEffect(() => {
-    const points: SpreadPoint[] = Array.from({ length: 20 }, (_, i) => ({
-      t: i,
-      spread: Math.round(120 + (Math.random() - 0.4) * 240),
-    }))
-    setData(points)
-  }, [])
-
-  return (
-    <section
-      style={{
-        maxWidth: '760px',
-        margin: '0 auto',
-        padding: '2rem 2rem 3rem',
-      }}
-    >
-      <p
-        style={{
-          color: 'var(--muted)',
-          fontSize: '0.75rem',
-          fontFamily: 'JetBrains Mono, monospace',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          marginBottom: '0.75rem',
-        }}
-      >
-        Live Spread — BTC-Yes vs Binance Implied Prob
-      </p>
-      <div
-        style={{
-          background: 'var(--surface-alt)',
-          border: '1px solid #1f1f1f',
-          borderRadius: '6px',
-          padding: '1.5rem 1rem 1rem',
-          height: '220px',
-        }}
-      >
-        {data.length > 0 && (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-              <CartesianGrid stroke="#1a1a1a" strokeDasharray="3 3" />
-              <XAxis dataKey="t" hide />
-              <YAxis
-                tick={{ fill: '#555555', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--surface-raised)',
-                  border: '1px solid #2a2a2a',
-                  borderRadius: '4px',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: '0.75rem',
-                  color: 'var(--text)',
-                }}
-                labelFormatter={() => ''}
-                formatter={(v: number) => [`${v} bps`, 'spread']}
-              />
-              <Line
-                type="monotone"
-                dataKey="spread"
-                stroke="#22c55e"
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, fill: '#22c55e' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </section>
-  )
-}
-
 function Features() {
   return (
     <section
@@ -364,171 +276,6 @@ function Features() {
         ))}
       </div>
     </section>
-  )
-}
-
-type PricingTier = {
-  name: string
-  price: string
-  signals: string
-  protocols: string[]
-  extras: string[]
-  highlight: boolean
-  bestValue?: boolean
-}
-
-const TIERS: PricingTier[] = [
-  {
-    name: 'Free',
-    price: '$0/mo',
-    signals: '100 signals/day',
-    protocols: ['REST'],
-    extras: ['No credit card', 'All BTC-Yes contracts', 'Community support'],
-    highlight: false,
-  },
-  {
-    name: 'Core',
-    price: '$49/mo',
-    signals: '10K signals/day',
-    protocols: ['REST', 'SSE'],
-    extras: ['Historical data (7 days)', 'Email support', 'SLA 99.5%'],
-    highlight: true,
-  },
-  {
-    name: 'Pro',
-    price: '$149/mo',
-    signals: 'Unlimited',
-    protocols: ['REST', 'SSE', 'WebSocket'],
-    extras: ['Full history', 'Slack support', 'SLA 99.9%', 'Custom contract coverage'],
-    highlight: false,
-    bestValue: true,
-  },
-]
-
-type FormState = 'idle' | 'loading' | 'success' | 'error'
-
-function FreeKeyForm() {
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState<FormState>('idle')
-  const [errMsg, setErrMsg] = useState('')
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setState('loading')
-    try {
-      const res = await fetch('/api/free-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Something went wrong')
-      }
-      setState('success')
-    } catch (err: unknown) {
-      setErrMsg(err instanceof Error ? err.message : 'Something went wrong')
-      setState('error')
-    }
-  }
-
-  if (state === 'success') {
-    return (
-      <p style={{ color: 'var(--accent)', fontSize: '0.8125rem', fontFamily: 'JetBrains Mono, monospace' }}>
-        Check your email ✓
-      </p>
-    )
-  }
-
-  return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <input
-        type="email"
-        required
-        placeholder="you@company.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid #2a2a2a',
-          borderRadius: '4px',
-          color: 'var(--text)',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '0.8125rem',
-          padding: '0.45rem 0.75rem',
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      />
-      {state === 'error' && (
-        <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: 0 }}>{errMsg}</p>
-      )}
-      <button
-        type="submit"
-        disabled={state === 'loading'}
-        className={state === 'loading' ? undefined : 'es-btn-ghost'}
-        style={{
-          background: 'transparent',
-          color: 'var(--text)',
-          fontWeight: 600,
-          fontSize: '0.8125rem',
-          padding: '0.55rem 0',
-          borderRadius: '4px',
-          border: '1px solid #2a2a2a',
-          cursor: state === 'loading' ? 'not-allowed' : 'pointer',
-          fontFamily: 'Inter, sans-serif',
-          opacity: state === 'loading' ? 0.5 : 1,
-        }}
-      >
-        {state === 'loading' ? 'Sending...' : 'Get Free Key'}
-      </button>
-    </form>
-  )
-}
-
-function CheckoutButton({ tier, highlight }: { tier: 'core' | 'pro'; highlight: boolean }) {
-  const [loading, setLoading] = useState(false)
-  const label = tier === 'core' ? 'Subscribe — $49/mo' : 'Subscribe — $149/mo'
-
-  async function handleClick() {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier }),
-      })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-    } catch {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className={loading ? undefined : highlight ? 'es-btn-accent' : 'es-btn-outline'}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'center',
-        background: highlight ? 'var(--accent)' : 'var(--surface-raised)',
-        color: highlight ? '#000' : 'var(--text)',
-        fontWeight: 600,
-        fontSize: '0.8125rem',
-        padding: '0.55rem 0',
-        borderRadius: '4px',
-        border: highlight ? 'none' : '1px solid #2a2a2a',
-        cursor: loading ? 'not-allowed' : 'pointer',
-        fontFamily: 'Inter, sans-serif',
-        opacity: loading ? 0.7 : 1,
-      }}
-    >
-      {loading ? 'Loading...' : label}
-    </button>
   )
 }
 
@@ -700,81 +447,6 @@ function Pricing() {
   )
 }
 
-function Faq() {
-  const [open, setOpen] = useState<number | null>(null)
-
-  return (
-    <section
-      style={{
-        maxWidth: '760px',
-        margin: '0 auto',
-        padding: '1rem 2rem 4rem',
-      }}
-    >
-      <h2
-        style={{
-          fontWeight: 600,
-          fontSize: '1.25rem',
-          marginBottom: '1.5rem',
-          letterSpacing: '-0.01em',
-        }}
-      >
-        FAQ
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#1f1f1f', border: '1px solid #1f1f1f', borderRadius: '6px', overflow: 'hidden' }}>
-        {FAQ_ITEMS.map((item, i) => (
-          <div key={i} style={{ background: 'var(--surface-alt)' }}>
-            <button
-              onClick={() => setOpen(open === i ? null : i)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '1rem 1.25rem',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text)',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                textAlign: 'left',
-                cursor: 'pointer',
-              }}
-            >
-              <span>{item.q}</span>
-              <span
-                className="mono"
-                style={{
-                  fontSize: '1rem',
-                  color: 'var(--muted)',
-                  marginLeft: '1rem',
-                  flexShrink: 0,
-                  userSelect: 'none',
-                }}
-              >
-                {open === i ? '−' : '+'}
-              </span>
-            </button>
-            {open === i && (
-              <p
-                style={{
-                  padding: '0 1.25rem 1rem',
-                  color: 'var(--muted)',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.65,
-                }}
-              >
-                {item.a}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function Footer() {
   return (
     <footer
@@ -816,14 +488,6 @@ function Footer() {
 export default function Page() {
   return (
     <>
-      <style>{`
-        .es-btn-accent { transition: opacity 0.15s; }
-        .es-btn-accent:hover { opacity: 0.85; }
-        .es-btn-outline { transition: border-color 0.15s, background 0.15s; }
-        .es-btn-outline:hover { border-color: #3a3a3a; background: #141414; }
-        .es-btn-ghost { transition: border-color 0.15s, background 0.15s, color 0.15s; }
-        .es-btn-ghost:hover { border-color: #2a2a2a; background: #141414; color: var(--text); }
-      `}</style>
       <Nav />
       <main>
         <Hero />

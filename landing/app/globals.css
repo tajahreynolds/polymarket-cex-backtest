@@ -20,4 +20,13 @@ body {
   line-height: 1.6;
 }
 
+html { scroll-behavior: smooth; }
+
 code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+.es-btn-accent { transition: opacity 0.15s; }
+.es-btn-accent:hover { opacity: 0.85; }
+.es-btn-outline { transition: border-color 0.15s, background 0.15s; }
+.es-btn-outline:hover { border-color: #3a3a3a; background: #141414; }
+.es-btn-ghost { transition: border-color 0.15s, background 0.15s, color 0.15s; }
+.es-btn-ghost:hover { border-color: #2a2a2a; background: #141414; color: var(--text); }
