@@ -33,7 +33,7 @@ const FEATURES = [
   {
     title: 'CEX-Calibrated',
     body:
-      'Every signal cross-references Polymarket implied probability against live Binance spot price. No guess-work — real price discovery anchors each edge estimate.',
+      'Every signal cross-references Polymarket implied probability against live Binance spot price. No guess-work means real price discovery anchors each edge estimate.',
   },
   {
     title: 'Sub-second latency',
@@ -50,11 +50,11 @@ const FEATURES = [
 const FAQ_ITEMS: FaqItem[] = [
   {
     q: 'How is this different from Prediction Hunt?',
-    a: 'Prediction Hunt aggregates crowd sentiment. EdgeSignal cross-references live CEX price data — specifically Binance spot — to derive an implied probability anchored to real-world derivatives markets. The spread between those two numbers is your edge.',
+    a: 'Prediction Hunt aggregates crowd sentiment. EdgeSignal cross-references live CEX price data (Binance spot) to derive an implied probability anchored to real-world derivatives markets. The spread between those two numbers is your edge.',
   },
   {
     q: 'What contracts do you cover?',
-    a: 'Currently BTC-Yes on Polymarket (the monthly settlement contracts). ETH-Yes and SOL-Yes coverage is planned for Q3 2026. Signal volume scales with Binance liquidity, so BTC is the natural starting point.',
+    a: 'Currently BTC up/down on Polymarket (the monthly settlement contracts). ETH and SOL coverage coming soon. Signal volume scales with Binance liquidity, so BTC is the natural starting point.',
   },
   {
     q: "What does 'edge_bps' mean?",
@@ -66,11 +66,11 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'Is there a free tier?',
-    a: 'Yes. The Free tier gives you 100 signals per day via REST at no cost — no credit card required. It covers all current BTC-Yes contracts so you can validate the signal quality before upgrading.',
+    a: 'Yes. The Free tier gives you 100 signals per day via REST, no credit card required. It covers all current BTC up/down contracts on polymarket so you can validate the signal quality before upgrading.',
   },
   {
     q: "Can't I just build this myself?",
-    a: "Yes — and you should try. The core idea is a 40-line Go script. What takes months is the production infrastructure: reconnect logic for both WebSockets, a conversion model that handles low-liquidity Binance periods without blowing up, fee/slippage calibration that doesn't over-state edge, and keeping it running at 3am when Polymarket restarts its CLOB. Free tier exists so you can compare your build against ours before paying.",
+    a: "Yes, and you should! The core idea is a 40-line Go script. What takes months is the production infrastructure: reconnect logic for both WebSockets, a conversion model that handles low-liquidity Binance periods without blowing up, fee/slippage calibration that doesn't over-state edge, and keeping it running at 3am when Polymarket restarts its CLOB. Free tier exists so you can compare your build against ours before paying.",
   },
 ]
 
@@ -148,7 +148,7 @@ function Hero() {
         }}
       >
         Every Polymarket contract has a shadow price on Binance. EdgeSignal
-        measures the gap in real time — and tells you when it&apos;s big enough
+        measures the gap in real time, telling you when it&apos;s big enough
         to trade.
       </p>
 
@@ -366,7 +366,6 @@ type PricingTier = {
   protocols: string[]
   extras: string[]
   highlight: boolean
-  cta: string | null
 }
 
 const TIERS: PricingTier[] = [
@@ -377,7 +376,6 @@ const TIERS: PricingTier[] = [
     protocols: ['REST'],
     extras: ['No credit card', 'All BTC-Yes contracts', 'Community support'],
     highlight: false,
-    cta: null,
   },
   {
     name: 'Core',
@@ -386,7 +384,6 @@ const TIERS: PricingTier[] = [
     protocols: ['REST', 'SSE'],
     extras: ['Historical data (7 days)', 'Email support', 'SLA 99.5%'],
     highlight: true,
-    cta: 'Subscribe',
   },
   {
     name: 'Pro',
@@ -395,9 +392,132 @@ const TIERS: PricingTier[] = [
     protocols: ['REST', 'SSE', 'WebSocket'],
     extras: ['Full history', 'Slack support', 'SLA 99.9%', 'Custom contract coverage'],
     highlight: false,
-    cta: 'Subscribe',
   },
 ]
+
+type FormState = 'idle' | 'loading' | 'success' | 'error'
+
+function FreeKeyForm() {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState<FormState>('idle')
+  const [errMsg, setErrMsg] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setState('loading')
+    try {
+      const res = await fetch('/api/free-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Something went wrong')
+      }
+      setState('success')
+    } catch (err: unknown) {
+      setErrMsg(err instanceof Error ? err.message : 'Something went wrong')
+      setState('error')
+    }
+  }
+
+  if (state === 'success') {
+    return (
+      <p style={{ color: 'var(--accent)', fontSize: '0.8125rem', fontFamily: 'JetBrains Mono, monospace' }}>
+        Check your email ✓
+      </p>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <input
+        type="email"
+        required
+        placeholder="you@company.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid #2a2a2a',
+          borderRadius: '4px',
+          color: 'var(--text)',
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '0.8125rem',
+          padding: '0.45rem 0.75rem',
+          outline: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+      {state === 'error' && (
+        <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: 0 }}>{errMsg}</p>
+      )}
+      <button
+        type="submit"
+        disabled={state === 'loading'}
+        style={{
+          background: 'transparent',
+          color: 'var(--muted)',
+          fontWeight: 600,
+          fontSize: '0.8125rem',
+          padding: '0.55rem 0',
+          borderRadius: '4px',
+          border: '1px solid #1f1f1f',
+          cursor: state === 'loading' ? 'not-allowed' : 'pointer',
+          fontFamily: 'Inter, sans-serif',
+        }}
+      >
+        {state === 'loading' ? 'Sending...' : 'Get Free Key'}
+      </button>
+    </form>
+  )
+}
+
+function CheckoutButton({ tier, highlight }: { tier: 'core' | 'pro'; highlight: boolean }) {
+  const [loading, setLoading] = useState(false)
+  const label = tier === 'core' ? 'Subscribe — $49/mo' : 'Subscribe — $149/mo'
+
+  async function handleClick() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      style={{
+        display: 'block',
+        width: '100%',
+        textAlign: 'center',
+        background: highlight ? 'var(--accent)' : 'var(--surface-raised)',
+        color: highlight ? '#000' : 'var(--text)',
+        fontWeight: 600,
+        fontSize: '0.8125rem',
+        padding: '0.55rem 0',
+        borderRadius: '4px',
+        border: highlight ? 'none' : '1px solid #2a2a2a',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        fontFamily: 'Inter, sans-serif',
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading ? 'Loading...' : label}
+    </button>
+  )
+}
 
 function Pricing() {
   return (
@@ -439,6 +559,8 @@ function Pricing() {
               outline: tier.highlight ? '1px solid #2a3a2a' : undefined,
               outlineOffset: tier.highlight ? '-1px' : undefined,
               position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             {tier.highlight && (
@@ -478,7 +600,7 @@ function Pricing() {
             >
               {tier.price}
             </div>
-            <ul style={{ listStyle: 'none', marginBottom: '1.25rem' }}>
+            <ul style={{ listStyle: 'none', marginBottom: '1.25rem', flex: 1 }}>
               <li
                 style={{
                   fontSize: '0.875rem',
@@ -522,42 +644,13 @@ function Pricing() {
                 </li>
               ))}
             </ul>
-            {tier.cta ? (
-              <a
-                href="#"
-                style={{
-                  display: 'block',
-                  textAlign: 'center',
-                  background: tier.highlight ? 'var(--accent)' : 'var(--surface-raised)',
-                  color: tier.highlight ? '#000' : 'var(--text)',
-                  fontWeight: 600,
-                  fontSize: '0.8125rem',
-                  padding: '0.55rem 0',
-                  borderRadius: '4px',
-                  textDecoration: 'none',
-                  border: tier.highlight ? 'none' : '1px solid #2a2a2a',
-                }}
-              >
-                {tier.cta}
-              </a>
+            {tier.name === 'Free' ? (
+              <FreeKeyForm />
             ) : (
-              <a
-                href="#pricing"
-                style={{
-                  display: 'block',
-                  textAlign: 'center',
-                  background: 'transparent',
-                  color: 'var(--muted)',
-                  fontWeight: 600,
-                  fontSize: '0.8125rem',
-                  padding: '0.55rem 0',
-                  borderRadius: '4px',
-                  textDecoration: 'none',
-                  border: '1px solid #1f1f1f',
-                }}
-              >
-                Get Started Free
-              </a>
+              <CheckoutButton
+                tier={tier.name.toLowerCase() as 'core' | 'pro'}
+                highlight={tier.highlight}
+              />
             )}
           </div>
         ))}
