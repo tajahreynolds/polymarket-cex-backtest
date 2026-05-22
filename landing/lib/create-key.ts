@@ -22,7 +22,7 @@ export async function createApiKey(
   })
 
   if (createErr) {
-    if (!createErr.message.toLowerCase().includes('already registered')) {
+    if (!createErr.message.toLowerCase().includes('already')) {
       throw new Error(`Failed to create user: ${createErr.message}`)
     }
     // User already exists — look up by email
