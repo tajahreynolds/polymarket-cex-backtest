@@ -1,8 +1,8 @@
 # polymarket-cex-backtest
 
-**57.8% win rate. 5 months of data. Every signal, every exit, every loss.**
+> ⚠️ **Backtest in progress.** Results will be published here once the walk-forward validation completes. Numbers below are placeholders — do not trade on them.
 
-This repo contains the full backtest of a systematic strategy that exploits mispricing between Polymarket BTC-Yes contracts and Binance BTC/USDT spot price.
+This repo contains the backtest of a systematic strategy that exploits mispricing between Polymarket BTC-Yes contracts and Binance BTC/USDT spot price.
 
 The core observation: Polymarket's implied probability for a BTC price target drifts away from what Binance is already pricing in. That gap — measured in basis points — is the edge. When it's wide enough to clear fees and slippage, you have a trade.
 
@@ -11,8 +11,6 @@ The core observation: Polymarket's implied probability for a BTC price target dr
 ## What this is not
 
 This is not a curve-fitted backtest. There are no lookback windows tuned to hit a target number. The strategy has one parameter: a spread threshold (default 200 bps). Everything else — the probability conversion model, the fee/slippage deduction, the cooldown window between signals — is fixed from first principles.
-
-No data snooping. The 57.8% figure came out of a walk-forward test on 5 months of live tick data (Dec 2025 – Apr 2026).
 
 ---
 
@@ -29,37 +27,19 @@ The sigmoid function converts a BTC spot price into an implied probability ancho
 
 ---
 
-## Results (Dec 2025 – Apr 2026)
+## Results
+
+> Backtest in progress. This section will be updated with real walk-forward results once validation completes.
 
 | Metric | Value |
 |---|---|
-| Total signals | 1,847 |
-| High-conviction signals (edge > 150 bps) | 412 |
-| Win rate (high-conviction only) | 57.8% |
-| Median edge at signal | 198 bps |
-| Median hold time | 4.2 minutes |
-| Sharpe (annualized, high-conviction) | 1.34 |
-| Max drawdown | 8.2% |
+| Total signals | TBD |
+| High-conviction signals (edge > 150 bps) | TBD |
+| Win rate (high-conviction only) | TBD |
+| Median edge at signal | TBD |
+| Sharpe (annualized, high-conviction) | TBD |
+| Max drawdown | TBD |
 | Fee/slippage deducted per trade | 20 bps (Polymarket taker 2% + 200 bps slippage reserve) |
-
-The 57.8% number is post-fee. Before fees, it's 61.3%. The gap tells you where most of the edge goes.
-
----
-
-## Why high-conviction only?
-
-Low-conviction signals (edge 50–150 bps) have a 51.2% win rate — barely better than noise after fees. The distribution has a fat right tail: when the spread is wide, it closes reliably. When it's narrow, it's almost always noise.
-
-Signal distribution by edge tier:
-
-```
-edge > 250 bps  ████████████░░░░  63.1% win rate  (n=187)
-200–250 bps     █████████░░░░░░░  58.4% win rate  (n=225)
-150–200 bps     ███████░░░░░░░░░  54.9% win rate  (n=412)
-50–150 bps      █████░░░░░░░░░░░  51.2% win rate  (n=1,023)
-```
-
-The threshold of 150 bps was set before the backtest. It was not optimized.
 
 ---
 
