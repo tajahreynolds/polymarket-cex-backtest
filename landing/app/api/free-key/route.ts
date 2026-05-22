@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
   let rawKey: string
   try {
     rawKey = await createApiKey(email, 'free')
-  } catch (err) {
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === 'KEY_EXISTS') {
+      return NextResponse.json({ success: true })
+    }
     console.error('[free-key] createApiKey error:', err)
     return NextResponse.json({ error: 'Failed to create key' }, { status: 500 })
   }

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Price not configured' }, { status: 500 })
   }
 
-  const origin = req.headers.get('origin') ?? 'https://edgesignal.io'
+  const origin = (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://edgesignal.io').replace(/\/$/, '')
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',

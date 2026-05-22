@@ -25,14 +25,35 @@ export async function createApiKey(
     if (!createErr.message.toLowerCase().includes('already')) {
       throw new Error(`Failed to create user: ${createErr.message}`)
     }
-    // User already exists — look up by email
-    const { data: list, error: listErr } = await supabase.auth.admin.listUsers()
-    if (listErr) throw new Error(`Failed to list users: ${listErr.message}`)
-    const existing = list.users.find((u) => u.email === email)
-    if (!existing) throw new Error('User not found after conflict')
-    userId = existing.id
+    // User already exists — walk paginated list to find by email
+    let found: string | undefined
+    let page = 1
+    while (true) {
+      const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 })
+      if (listErr) throw new Error(`Failed to list users: ${listErr.message}`)
+      const match = list.users.find((u) => u.email === email)
+      if (match) { found = match.id; break }
+      if (list.nextPage === null) break
+      page++
+    }
+    if (!found) throw new Error('User not found after conflict')
+    userId = found
   } else {
     userId = created.user.id
+  }
+
+  // Idempotency: one key per (user, tier) — also acts as rate-limit for free signups
+  const { data: existingKey } = await supabase
+    .from('api_keys')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('tier', tier)
+    .maybeSingle()
+
+  if (existingKey) {
+    const err = new Error('KEY_EXISTS') as Error & { code: string }
+    err.code = 'KEY_EXISTS'
+    throw err
   }
 
   const rawKey = 'es_' + randomBytes(24).toString('hex')

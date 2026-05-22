@@ -20,6 +20,9 @@ function verifySignature(payload: string, headers: Headers): boolean {
 
   if (!msgId || !msgTimestamp || !msgSignature) return false
 
+  const ts = parseInt(msgTimestamp, 10)
+  if (isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false
+
   const secret = process.env.RESEND_WEBHOOK_SECRET ?? ''
   const secretBytes = Buffer.from(secret.replace(/^whsec_/, ''), 'base64')
   const toSign = `${msgId}.${msgTimestamp}.${payload}`
