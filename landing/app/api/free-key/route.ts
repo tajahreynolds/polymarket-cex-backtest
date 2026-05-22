@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         <p>Test it now:</p>
         <pre style="background:#111;color:#e5e5e5;padding:1rem;border-radius:4px;font-family:monospace">curl -H "Authorization: Bearer ${rawKey}" \\
   https://micro-arb-production.up.railway.app/v1/signals/latest</pre>
-        <p style="color:#888;font-size:0.875rem">Free tier: 100 signals/day via REST. Questions? contact@edgesignal.io</p>
+        <p style="color:#888;font-size:0.875rem">Free tier: 100 signals/day via REST. Questions? contact@mineexi.resend.app</p>
       `,
     })
   } catch (err) {

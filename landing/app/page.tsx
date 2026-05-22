@@ -366,6 +366,7 @@ type PricingTier = {
   protocols: string[]
   extras: string[]
   highlight: boolean
+  bestValue?: boolean
 }
 
 const TIERS: PricingTier[] = [
@@ -392,6 +393,7 @@ const TIERS: PricingTier[] = [
     protocols: ['REST', 'SSE', 'WebSocket'],
     extras: ['Full history', 'Slack support', 'SLA 99.9%', 'Custom contract coverage'],
     highlight: false,
+    bestValue: true,
   },
 ]
 
@@ -547,10 +549,11 @@ function Pricing() {
           background: '#1f1f1f',
           border: '1px solid #1f1f1f',
           borderRadius: '6px',
-          overflow: 'hidden',
+          overflow: 'visible',
+          marginTop: '1.75rem',
         }}
       >
-        {TIERS.map((tier) => (
+        {TIERS.map((tier, idx) => (
           <div
             key={tier.name}
             style={{
@@ -561,8 +564,34 @@ function Pricing() {
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: idx === 0 ? '5px 0 0 5px' : idx === TIERS.length - 1 ? '0 5px 5px 0' : undefined,
             }}
           >
+            {tier.bestValue && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-1.75rem',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'var(--accent)',
+                  color: '#040a04',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.625rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  padding: '0.3rem 0.75rem',
+                  whiteSpace: 'nowrap',
+                  borderRadius: '3px 3px 0 0',
+                  lineHeight: 1,
+                  paddingBottom: '0.55rem',
+                  textAlign: 'center',
+                }}
+              >
+                ★ Best Value
+              </div>
+            )}
             {tier.highlight && (
               <span
                 style={{
@@ -756,7 +785,7 @@ function Footer() {
         EdgeSignal &copy; 2026
       </span>
       <a
-        href="mailto:contact@edgesignal.io"
+        href="mailto:contact@mineexi.resend.app"
         style={{
           fontSize: '0.8125rem',
           color: 'var(--muted)',
@@ -764,7 +793,7 @@ function Footer() {
           fontFamily: 'JetBrains Mono, monospace',
         }}
       >
-        contact@edgesignal.io
+        contact@mineexi.resend.app
       </a>
     </footer>
   )
