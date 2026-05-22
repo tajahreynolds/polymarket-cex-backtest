@@ -19,14 +19,11 @@ type FaqItem = { q: string; a: string }
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SAMPLE_RESPONSE = `{
-  "contract": "BTC-25MAY2026-YES",
-  "timestamp": "2026-05-20T14:32:01Z",
-  "polymarket_prob": 0.6821,
-  "binance_implied_prob": 0.7104,
-  "spread_bps": 283,
-  "edge_bps": 198,
-  "direction": "LONG",
-  "confidence": 0.87
+  "spread":     0.0283,
+  "direction":  "buy",
+  "edge_bps":   198,
+  "confidence": 0.87,
+  "ts":         "2026-05-20T14:32:01Z"
 }`
 
 const FEATURES = [
@@ -58,7 +55,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "What does 'edge_bps' mean?",
-    a: "Basis points of expected profit after accounting for Polymarket taker fees (2%), estimated slippage on the exit leg, and our model's confidence discount. 100 bps = 1%. Anything above 150 bps is considered a high-conviction signal.",
+    a: "Basis points of expected profit after accounting for Polymarket taker fees (2%), estimated slippage on the exit leg, and our model's confidence discount. 100 bps = 1%.",
   },
   {
     q: 'How do I authenticate?',
@@ -100,6 +97,11 @@ function Nav() {
       </span>
       <a
         href="#pricing"
+        className="es-btn-accent"
+        onClick={(e) => {
+          e.preventDefault()
+          document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }}
         style={{
           background: 'var(--accent)',
           color: '#000',
@@ -155,6 +157,11 @@ function Hero() {
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '3rem' }}>
         <a
           href="#pricing"
+          className="es-btn-accent"
+          onClick={(e) => {
+            e.preventDefault()
+            document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }}
           style={{
             background: 'var(--accent)',
             color: '#000',
@@ -168,7 +175,8 @@ function Hero() {
           Get Free API Key
         </a>
         <a
-          href="#"
+          href="/docs"
+          className="es-btn-outline"
           style={{
             background: 'transparent',
             color: 'var(--text)',
@@ -459,16 +467,18 @@ function FreeKeyForm() {
       <button
         type="submit"
         disabled={state === 'loading'}
+        className={state === 'loading' ? undefined : 'es-btn-ghost'}
         style={{
           background: 'transparent',
-          color: 'var(--muted)',
+          color: 'var(--text)',
           fontWeight: 600,
           fontSize: '0.8125rem',
           padding: '0.55rem 0',
           borderRadius: '4px',
-          border: '1px solid #1f1f1f',
+          border: '1px solid #2a2a2a',
           cursor: state === 'loading' ? 'not-allowed' : 'pointer',
           fontFamily: 'Inter, sans-serif',
+          opacity: state === 'loading' ? 0.5 : 1,
         }}
       >
         {state === 'loading' ? 'Sending...' : 'Get Free Key'}
@@ -500,6 +510,7 @@ function CheckoutButton({ tier, highlight }: { tier: 'core' | 'pro'; highlight: 
     <button
       onClick={handleClick}
       disabled={loading}
+      className={loading ? undefined : highlight ? 'es-btn-accent' : 'es-btn-outline'}
       style={{
         display: 'block',
         width: '100%',
@@ -574,6 +585,10 @@ function Pricing() {
                   top: '-1.75rem',
                   left: '50%',
                   transform: 'translateX(-50%)',
+                  height: '1.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   background: 'var(--accent)',
                   color: '#040a04',
                   fontFamily: 'JetBrains Mono, monospace',
@@ -581,12 +596,9 @@ function Pricing() {
                   fontWeight: 700,
                   letterSpacing: '0.14em',
                   textTransform: 'uppercase',
-                  padding: '0.3rem 0.75rem',
+                  padding: '0 0.75rem',
                   whiteSpace: 'nowrap',
                   borderRadius: '3px 3px 0 0',
-                  lineHeight: 1,
-                  paddingBottom: '0.55rem',
-                  textAlign: 'center',
                 }}
               >
                 ★ Best Value
@@ -804,6 +816,14 @@ function Footer() {
 export default function Page() {
   return (
     <>
+      <style>{`
+        .es-btn-accent { transition: opacity 0.15s; }
+        .es-btn-accent:hover { opacity: 0.85; }
+        .es-btn-outline { transition: border-color 0.15s, background 0.15s; }
+        .es-btn-outline:hover { border-color: #3a3a3a; background: #141414; }
+        .es-btn-ghost { transition: border-color 0.15s, background 0.15s, color 0.15s; }
+        .es-btn-ghost:hover { border-color: #2a2a2a; background: #141414; color: var(--text); }
+      `}</style>
       <Nav />
       <main>
         <Hero />
