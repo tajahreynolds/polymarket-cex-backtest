@@ -1,17 +1,18 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/`: core strategy logic (`proxy.py`, `edge.py`) used for probability mapping and edge computation.
-- `data/`: ingestion and export scripts (`pull_binance.py`, `pull_polymarket.py`, `export_signals.py`) plus raw datasets under `data/raw/`.
-- `notebooks/`: research and backtest workflow (`01_data_loading.ipynb` through `04_equity_curve.ipynb`).
+- `src/`: analysis helpers (`config.py`, `db.py`, `validate.py`) for replay validation and KPI checks.
+- `data/`: utility scripts (`pull_polymarket.py`, `export_signals.py`) plus raw datasets under `data/raw/`.
+- `notebooks/`: replay analysis workflow (`01_load_signals.ipynb` through `07_rejections.ipynb`).
 - `landing/`: Next.js 14 TypeScript marketing/API app (`app/`, `lib/`, `package.json`, `vercel.json`).
-- `README.md`: strategy assumptions, limitations, and high-level architecture.
+- `README.md`: runtime scope, analysis architecture, and roadmap task map.
 
 ## Build, Test, and Development Commands
 - Python environment (recommended): `python -m venv .venv && source .venv/bin/activate`
 - Install Python deps (if needed for scripts/notebooks): `pip install pandas numpy jupyter requests`
-- Pull market data: `python data/pull_binance.py` and `python data/pull_polymarket.py`
+- Pull market data: `python data/pull_polymarket.py`
 - Export strategy signals: `python data/export_signals.py`
+- Run invariant validation: `python -m src.validate`
 - Run landing app locally:
   - `cd landing && npm install`
   - `npm run dev` (local dev server)
@@ -21,7 +22,7 @@
 ## Coding Style & Naming Conventions
 - Python: PEP 8, 4-space indentation, `snake_case` for functions/variables, module names lowercase.
 - TypeScript/React: 2-space indentation in existing files, `camelCase` for variables/functions, `PascalCase` for components.
-- Keep strategy math deterministic and side-effect-light in `src/`; isolate I/O in `data/` scripts and API routes.
+- Keep analysis math deterministic and side-effect-light in notebooks and `src/`; isolate I/O in `data/` scripts and API routes.
 
 ## Testing Guidelines
 - Current status: no formal automated test suite is checked in.

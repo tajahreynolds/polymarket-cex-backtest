@@ -1,24 +1,42 @@
 # polymarket-cex-backtest
 
-> ⚠️ **Analysis in progress.** This repo is a replay analysis consumer — not a trading engine. It reads event data produced by the live Go engine in `../market/micro-arb`.
+This repo is a replay analysis consumer, not a trading engine. It reads event data produced by the live Go engine in `../market/micro-arb`.
 
 ## What this is
 
 Jupyter notebooks that analyze signal quality, fill rates, and realized PnL from micro-arb's persisted event stream.
 
-**Scope: single-condition identity arb only.** The engine detects when `YES price + NO price ≠ 1` on a single Polymarket binary condition. No CEX dependency. No momentum model. No cross-market dependency.
+**Current runtime scope:** single-condition identity sum-arb only. The engine detects when `YES ask + NO ask ≠ 1` on one Polymarket condition. Binance and momentum are not part of live edge detection.
 
 **This repo does not implement arb detection.** Detection is owned by `micro-arb/internal/signal/engine.go` (`sum_arb` strategy). This repo reads its output.
 
 ---
 
-## The arb condition
+## Runtime Signal Condition
 
 ```
-long-both entry:  yes_ask + no_ask + total_cost < 1   → buy YES + buy NO
+long-both entry:  yes_ask + no_ask + total_cost < 1   -> buy YES + buy NO
 ```
 
-Signal detection, risk checks, execution, and fill recording all happen in the Go engine. This repo joins the results.
+Signal detection, risk checks, execution, and fill recording happen in the Go engine. This repo joins and validates those outputs.
+
+## Roadmap Task Map
+
+Status legend: `. not started` | `~ started` | `x done` | `complete shipped`
+
+1. `~` Stabilize single-condition sum-arb analytics
+   - Keep V1-V9 invariant checks green.
+   - Keep default KPI paths filtered to actionable signals only.
+   - Maintain parity with engine schemas (`signal_decisions`, `risk_decisions`, `execution_results`).
+2. `~` Add execution-quality analytics
+   - Add completion-ratio buckets and residual-exposure metrics to default reports.
+   - Add stricter checks around partial fills and latency outliers.
+3. `.` Prepare combinatorial-ready analysis interfaces
+   - Move from single-leg assumptions to leg-set aware analysis inputs.
+   - Add schema adapters for multi-leg intents/trades once emitted by engine.
+4. `.` Add cross-market/combinatorial attribution
+   - Add strategy-segmented KPI tables for identity, cross-market, and combinatorial paths.
+   - Add edge-source attribution and per-strategy capture efficiency views.
 
 ---
 
@@ -95,7 +113,7 @@ experimental/
 
 data/
   pull_polymarket.py      — historical CLOB snapshot pull script
-  pull_binance.py         — historical Binance aggTrade pull
+  pull_binance.py         — legacy historical Binance pull (not in live strategy path)
   export_signals.py       — CSV export of signals table
 ```
 
