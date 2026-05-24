@@ -1,45 +1,75 @@
 # polymarket-cex-backtest
 
-> ⚠️ **Backtest in progress.** Results will be published here once the walk-forward validation completes. Numbers below are placeholders — do not trade on them.
+> ⚠️ **Analysis in progress.** This repo is a replay analysis consumer — not a trading engine. It reads event data produced by the live Go engine in `../market/micro-arb`.
 
-This repo contains the backtest of a systematic strategy that exploits mispricing between Polymarket BTC-Yes contracts and Binance BTC/USDT spot price.
+## What this is
 
-The core observation: Polymarket's implied probability for a BTC price target drifts away from what Binance is already pricing in. That gap — measured in basis points — is the edge. When it's wide enough to clear fees and slippage, you have a trade.
+Jupyter notebooks that analyze signal quality, fill rates, and realized PnL from micro-arb's persisted event stream.
 
----
+**Scope: single-condition identity arb only.** The engine detects when `YES price + NO price ≠ 1` on a single Polymarket binary condition. No CEX dependency. No momentum model. No cross-market dependency.
 
-## What this is not
-
-This is not a curve-fitted backtest. There are no lookback windows tuned to hit a target number. The strategy has one parameter: a spread threshold (default 200 bps). Everything else — the probability conversion model, the fee/slippage deduction, the cooldown window between signals — is fixed from first principles.
+**This repo does not implement arb detection.** Detection is owned by `micro-arb/internal/signal/engine.go` (`sum_arb` strategy). This repo reads its output.
 
 ---
 
-## The math in 4 lines
+## The arb condition
 
 ```
-binance_implied_prob = sigmoid((btc_spot - 50000) / 10000)
-spread_bps           = (polymarket_prob - binance_implied_prob) × 10000
-edge_bps             = spread_bps - fee_bps - slippage_bps
-signal               = LONG if edge_bps > threshold, SHORT if edge_bps < -threshold
+long-both entry:  yes_ask + no_ask + total_cost < 1   → buy YES + buy NO
 ```
 
-The sigmoid function converts a BTC spot price into an implied probability anchored at $50,000 (≈ 0.5 probability). This is deliberately simple — the goal is to detect when Polymarket is *materially* diverging from the CEX, not to build the most accurate probability model.
+Signal detection, risk checks, execution, and fill recording all happen in the Go engine. This repo joins the results.
 
 ---
 
-## Results
+## Architecture
 
-> Backtest in progress. This section will be updated with real walk-forward results once validation completes.
+```
+../market/micro-arb  (Go engine)
+  ├── PmxtBookClient          — live L2 WebSocket from Polymarket CLOB
+  ├── signal/engine.go        — sum_arb: YES+NO divergence detection
+  ├── risk/, execution/       — risk gates, order submission
+  └── persistence/            — writes to Railway Postgres (Supabase)
+           │
+           ▼ signal_snapshots, risk_decisions, fills
+polymarket-cex-backtest  (this repo, Python)
+  └── notebooks/              — load → join → compute → visualize
+```
 
-| Metric | Value |
-|---|---|
-| Total signals | TBD |
-| High-conviction signals (edge > 150 bps) | TBD |
-| Win rate (high-conviction only) | TBD |
-| Median edge at signal | TBD |
-| Sharpe (annualized, high-conviction) | TBD |
-| Max drawdown | TBD |
-| Fee/slippage deducted per trade | 20 bps (Polymarket taker 2% + 200 bps slippage reserve) |
+---
+
+## Notebooks
+
+| Notebook | What it does | Invariants |
+|---|---|---|
+| `01_load_signals.ipynb` | Load `signal_snapshots` for sum_arb; verify V1 (spread = YES+NO-1) | V1 |
+| `02_join.ipynb` | Join signal→risk→fills on `correlation_id`; check V2 | V2 |
+| `03_pnl.ipynb` | Net PnL = `fill_size × |spread| - fill_size × cost_rate` | V4, V7 |
+| `04_funnel.ipynb` | Win rate (filled only), capture rate (emitted / all evals) | V3, V5 |
+| `05_latency.ipynb` | p50/p95 submit and fill latency from attribution view | V6 |
+| `06_drawdown.ipynb` | Equity curve, drawdown, daily PnL time series | V7 |
+| `07_rejections.ipynb` | Breakdown by rejection reason; confirms C4 accounting | V5, C4 |
+
+---
+
+## Setup
+
+Requires a `RAILWAY_DATABASE_URL` pointing at the micro-arb Railway Postgres instance.
+
+```bash
+# Option 1: env var
+export RAILWAY_DATABASE_URL=postgresql://...
+
+# Option 2: .env.railway file at repo root
+echo "RAILWAY_DATABASE_URL=postgresql://..." > .env.railway
+```
+
+Config values (feeBPS, slippageBPS, spreadThreshold) are loaded from `../market/micro-arb/backtest.config.json` — do not hardcode them in notebooks.
+
+```bash
+python3 -m pip install psycopg2-binary pandas matplotlib python-dotenv nbformat
+jupyter notebook notebooks/
+```
 
 ---
 
@@ -47,78 +77,43 @@ The sigmoid function converts a BTC spot price into an implied probability ancho
 
 ```
 notebooks/
-  01_data_loading.ipynb       — Load raw tick data from Polymarket CLOB + Binance aggTrade
-  02_signal_generation.ipynb  — Apply spread model, generate signal log
-  03_backtest.ipynb           — Walk-forward P&L, drawdown, win rate by tier
-  04_equity_curve.ipynb       — Equity curve with drawdown overlay (the chart)
-
-data/
-  README.md                   — How to reproduce the dataset (Polymarket CLOB API + Binance)
-  sample/                     — 24 hours of tick data for local testing
+  01_load_signals.ipynb   — load + V1 spread check
+  02_join.ipynb           — signal→risk→fills join
+  03_pnl.ipynb            — net PnL per trade (V4)
+  04_funnel.ipynb         — win rate + opportunity funnel
+  05_latency.ipynb        — latency p50/p95
+  06_drawdown.ipynb       — equity curve + drawdown
+  07_rejections.ipynb     — rejection breakdown
 
 src/
-  proxy.py                    — Python port of the Go sigmoid proxy function
-  edge.py                     — Edge computation (identical logic to production)
-  signals.py                  — Signal generator
+  config.py               — load feeBPS/slippageBPS/threshold from backtest.config.json
+  db.py                   — Postgres connection via RAILWAY_DATABASE_URL
+
+experimental/
+  proxy.py                — old CEX momentum proxy (not in use)
+  edge.py                 — old Binance-anchored edge model (not in use)
+
+data/
+  pull_polymarket.py      — historical CLOB snapshot pull script
+  pull_binance.py         — historical Binance aggTrade pull
+  export_signals.py       — CSV export of signals table
 ```
 
 ---
 
-## Reproducing the dataset
+## What this analysis can and cannot prove
 
-The raw data comes from two public sources:
+| Can prove | Cannot prove |
+|---|---|
+| Arb condition fired on historical engine data | Real fill at that exact price was available |
+| Net PnL after fee+slippage is positive | Fill was not affected by market impact |
+| Invariants V1–V9 hold in persisted records | L2 depth was sufficient at signal time (not persisted) |
+| Latency is within SLO bounds | Future latency will be the same |
 
-**Polymarket CLOB** — order book snapshots and trade events via the Gamma API. No account required. Rate limit: 10 req/s.
-
-**Binance aggTrade** — `btcusdt@aggTrade` WebSocket stream. Public, no API key.
-
-See `data/README.md` for the exact pull scripts.
-
-One caveat: Polymarket's historical CLOB data only goes back ~6 months at high resolution. If you want to extend this backtest, you need to start capturing live data now.
-
----
-
-## What the production system does differently
-
-This backtest uses 1-second resolution snapshots. The [live system](https://edgesignal.dev) runs on WebSocket feeds with <300ms latency — signals arrive before most market participants can react manually.
-
-The production signal JSON looks like this:
-
-```json
-{
-  "contract": "BTC-25MAY2026-YES",
-  "timestamp": "2026-05-20T14:32:01Z",
-  "polymarket_prob": 0.6821,
-  "binance_implied_prob": 0.7104,
-  "spread_bps": 283,
-  "edge_bps": 198,
-  "direction": "LONG",
-  "confidence": 0.87
-}
-```
-
-Free tier: 100 signals/day via REST. No credit card.
-
----
-
-## Known limitations
-
-1. **BTC-only.** The model works because BTC has deep, liquid derivatives markets on Binance. ETH-Yes contracts behave differently — ETH's Binance derivatives premium is smaller and noisier. Not tested.
-
-2. **Exit model is naive.** The backtest exits at a fixed 2% TP / 2% SL. A smarter exit (e.g., exit when spread closes to < 50 bps) improves the Sharpe but introduces look-ahead risk. Left as an exercise.
-
-3. **Settlement risk not modeled.** BTC-Yes contracts have hard settlement dates. Near-expiry behavior is different. The backtest excludes the final 48 hours before settlement.
-
-4. **Slippage estimate may be optimistic.** 200 bps reserved per trade assumes moderate market depth. In thin books, you'll get worse fills.
-
----
-
-## Questions
-
-Open an issue. Or find me on r/algotrading — I'll post a writeup once the repo hits 20 stars (I want to know if anyone actually finds this useful before writing 3,000 words about it).
+L2 depth is not persisted. Fill simulation against raw depth is not possible from stored events.
 
 ---
 
 ## License
 
-MIT. Use it, fork it, build something better.
+MIT.
