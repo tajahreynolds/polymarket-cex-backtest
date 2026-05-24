@@ -45,13 +45,19 @@ Extend `PriceEvent` (or introduce `OutcomePairEvent`):
 ```go
 type OutcomePairEvent struct {
     ContractID          string
-    YesPrice            float64  // best ask on YES leg
-    NoPrice             float64  // best ask on NO leg
+    YesPrice            float64  // best ask on YES leg (BUY side)
+    NoPrice             float64  // best ask on NO leg (BUY side)
     ReceivedAt          time.Time
 }
 ```
 
-Polymarket CLOB returns YES and NO prices in the same orderbook response. Ingestion layer must extract both legs per tick and emit a single `OutcomePairEvent` rather than two separate `PriceEvent`s. This eliminates the race condition where YES and NO prices are from different timestamps.
+**API flow (Polymarket CLOB):**
+
+1. **Startup** — call `getClobMarketInfo(conditionID)` once per market. Extract YES token ID (`t` field where `o == "Yes"`) and NO token ID (`t` field where `o == "No"`). Store both in `BookRegistry`.
+
+2. **Per tick** — call `getPrices([{tokenId: yesTokenId}, {tokenId: noTokenId}])`. Single response returns both `BUY` prices atomically. Emit one `OutcomePairEvent`. Use `BUY` price (best ask) for both legs — arb entry requires buying both.
+
+This eliminates the race condition where YES and NO prices come from different WS timestamps. Both legs fetched in single HTTP round-trip.
 
 ### 1.3 Binance Feed — Demote from Hot Path
 
@@ -136,7 +142,7 @@ Assert V1 at the persistence layer: signal records with `spread` outside `[-1.0,
 |---|---|---|
 | `TOTAL_CAPITAL_USD` | 2000 | Start at midpoint of range; expand after 50 fills |
 | `DAILY_LOSS_LIMIT_PCT` | 0.05 | $100 max daily loss at $2k capital |
-| `MAX_POSITION_SIZE_USD` | 200 | Bounded by Polymarket book depth ($50–500 typical) |
+| `MAX_POSITION_SIZE_USD` | 100 | Bounded by Polymarket book depth ($50–500 typical) |
 | `SIGNAL_SPREAD_THRESHOLD` | 0.005 | 50 bps minimum — below this, fees eat the edge |
 | `SIGNAL_COOLDOWN_SECONDS` | 30 | Keep; prevents signal storm on single contract |
 
