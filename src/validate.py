@@ -2,11 +2,9 @@
 Run standalone: python -m src.validate
 """
 import os
-import sys
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from src import db, config
+from . import db, config
 
 
 def assert_v1(df: pd.DataFrame) -> None:
