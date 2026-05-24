@@ -1,0 +1,43 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-24-go-live-hardening.md",
+  "tasks": [
+    {
+      "id": 7,
+      "subject": "Task 1: Add BestAsk to PriceEvent",
+      "status": "pending",
+      "description": "**Goal:** Expose raw ask price from Polymarket WS frame for accurate arb cost computation.\n\n**Files:**\n- Modify: `internal/ingestion/ws_common.go`\n- Modify: `internal/ingestion/polymarket.go`\n- Test: `internal/ingestion/polymarket_test.go`\n\n**Acceptance Criteria:**\n- [ ] PriceEvent.BestAsk set from WS best_ask field\n- [ ] BestAsk is zero when best_ask missing or unparseable\n- [ ] PutPriceEvent zeroes BestAsk\n- [ ] Existing tests pass\n\n**Verify:** `go test ./internal/ingestion/... -v` → PASS\n\n```json:metadata\n{\"files\": [\"internal/ingestion/ws_common.go\", \"internal/ingestion/polymarket.go\", \"internal/ingestion/polymarket_test.go\"], \"verifyCommand\": \"cd /home/tajah/projects/market/micro-arb && go test ./internal/ingestion/... -v\", \"acceptanceCriteria\": [\"PriceEvent.BestAsk set from WS best_ask\", \"zero when missing\", \"PutPriceEvent zeroes it\", \"tests pass\"]}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 2: Decouple Binance from sum-arb signal gate",
+      "status": "pending",
+      "blockedBy": [7],
+      "description": "**Goal:** Remove Binance hard gates blocking signal emission; use BestAsk for spread; fix EntryPrice.\n\n**Files:**\n- Modify: `internal/signal/engine.go`\n\n**Acceptance Criteria:**\n- [ ] Signals emit without Binance data\n- [ ] Signals emit when Binance stale > 10s\n- [ ] Spread uses yesAsk + noAsk when BestAsk available\n- [ ] EntryPrice = YES ask price\n\n**Verify:** `go test ./internal/signal/... -v` → PASS\n\n```json:metadata\n{\"files\": [\"internal/signal/engine.go\", \"internal/signal/engine_test.go\"], \"verifyCommand\": \"cd /home/tajah/projects/market/micro-arb && go test ./internal/signal/... -v\", \"acceptanceCriteria\": [\"emits without Binance\", \"uses BestAsk\", \"EntryPrice fixed\"]}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 3: Trades table ON CONFLICT dedup",
+      "status": "pending",
+      "description": "**Goal:** Prevent duplicate trade rows on WAL replay.\n\n**Files:**\n- Modify: `internal/persistence/repo.go`\n\n**Verify:** `go test ./internal/persistence/... -v` → PASS\n\n```json:metadata\n{\"files\": [\"internal/persistence/repo.go\"], \"verifyCommand\": \"cd /home/tajah/projects/market/micro-arb && go test ./internal/persistence/... -v\", \"acceptanceCriteria\": [\"ON CONFLICT DO NOTHING on Insert\", \"ON CONFLICT DO NOTHING on InsertLive\", \"returns 0 nil on conflict\"]}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 4: Startup safety — risk param log + MockExecutor warning",
+      "status": "pending",
+      "description": "**Goal:** Log effective risk config at boot; warn loudly in mock mode every 100 trades.\n\n**Files:**\n- Modify: `cmd/agent/main.go`\n- Modify: `internal/execution/mock.go`\n\n**Verify:** `go build ./cmd/agent/... && go test ./internal/execution/... -v` → no errors\n\n```json:metadata\n{\"files\": [\"cmd/agent/main.go\", \"internal/execution/mock.go\"], \"verifyCommand\": \"cd /home/tajah/projects/market/micro-arb && go build ./cmd/agent/... && go test ./internal/execution/... -v\", \"acceptanceCriteria\": [\"startup log prints risk params\", \"MockExecutor warns every 100 trades\"]}\n```"
+    },
+    {
+      "id": 11,
+      "subject": "Task 5: WS-based fill listener",
+      "status": "pending",
+      "description": "**Goal:** Replace polling as primary fill path with WS user-channel; FILL_TIMEOUT_MS cancel on expiry.\n\n**Files:**\n- Modify: `internal/execution/polymarket.go`\n- Modify: `internal/config/config.go`\n\n**Verify:** `go test ./internal/execution/... -v` → PASS\n\n```json:metadata\n{\"files\": [\"internal/execution/polymarket.go\", \"internal/config/config.go\"], \"verifyCommand\": \"cd /home/tajah/projects/market/micro-arb && go test ./internal/execution/... -v\", \"acceptanceCriteria\": [\"WS fill listener on user channel\", \"FILL_TIMEOUT_MS cancel path\", \"WAL order_cancelled event\", \"OrderPoller kept as fallback\"]}\n```"
+    },
+    {
+      "id": 12,
+      "subject": "Task 6: Python — validate.py, capture efficiency, config hardening",
+      "status": "pending",
+      "description": "**Goal:** Programmatic V1-V7 assertions, config path hardening, fill completeness, capture efficiency.\n\n**Files:**\n- Create: `src/validate.py`\n- Modify: `src/config.py`\n- Modify: `notebooks/03_pnl.ipynb`\n- Modify: `notebooks/04_funnel.ipynb`\n\n**Verify:** `python -m src.validate` → all PASS\n\n```json:metadata\n{\"files\": [\"src/validate.py\", \"src/config.py\", \"notebooks/03_pnl.ipynb\", \"notebooks/04_funnel.ipynb\"], \"verifyCommand\": \"cd /home/tajah/projects/polymarket-cex-backtest && python -m src.validate\", \"acceptanceCriteria\": [\"V1-V7 assertions in validate.py\", \"config path uses env var\", \"fill_completeness_rate in 03_pnl\", \"capture_efficiency in 04_funnel\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-24T00:00:00Z"
+}
