@@ -56,18 +56,35 @@ def export(database_url: str, out_dir: Path) -> None:
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("""
-                SELECT
-                    id,
-                    contract_id,
-                    direction,
-                    implied_prob_market,
-                    implied_prob_real,
-                    spread,
-                    expected_edge,
-                    decision,
-                    rejection_reason,
-                    decision_timestamp_ns,
-                    created_at
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'signals'
+            """)
+            present = {r[0] for r in cur.fetchall()}
+            ordered = [
+                "id",
+                "contract_id",
+                "direction",
+                "implied_prob_market",
+                "implied_prob_real",
+                "spread",
+                "expected_edge",
+                "gross_edge_per_share",
+                "entry_fees_per_share",
+                "expected_slippage_per_share",
+                "latency_haircut_per_share",
+                "net_ev_per_share",
+                "net_ev_usd",
+                "ev_gate_reason",
+                "actionability",
+                "decision",
+                "rejection_reason",
+                "decision_timestamp_ns",
+                "created_at",
+            ]
+            selected = [c for c in ordered if c in present]
+            cur.execute(f"""
+                SELECT {", ".join(selected)}
                 FROM signals
                 ORDER BY decision_timestamp_ns ASC
             """)

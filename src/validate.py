@@ -7,6 +7,14 @@ import pandas as pd
 from . import db, config
 
 
+def _table_columns(table: str) -> set[str]:
+    rows = db.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
+        (table,),
+    )
+    return {r["column_name"] for r in rows}
+
+
 def assert_v1(df: pd.DataFrame) -> None:
     """V1: spread in [-1.0, 1.0]."""
     if df.empty:
@@ -69,6 +77,36 @@ def assert_v7(df: pd.DataFrame) -> None:
         )
 
 
+def assert_ev1(df: pd.DataFrame) -> None:
+    """V-EV1: net_ev_per_share decomposition is internally consistent."""
+    if df.empty:
+        return
+    expected = (
+        df["gross_edge_per_share"]
+        - df["entry_fees_per_share"]
+        - df["expected_slippage_per_share"]
+        - df["latency_haircut_per_share"]
+    )
+    violations = df[(df["net_ev_per_share"] - expected).abs() > 1e-6]
+    if not violations.empty:
+        raise AssertionError(
+            f"V-EV1 FAIL: {len(violations)} rows have inconsistent net_ev_per_share. "
+            f"Max delta: {(df['net_ev_per_share'] - expected).abs().max():.8f}"
+        )
+
+
+def assert_ev2(df: pd.DataFrame) -> None:
+    """V-EV2: no live_actionable rows with non-positive net EV."""
+    if df.empty:
+        return
+    bad = df[(df["actionability"] == "live_actionable") & (df["net_ev_per_share"] <= 0)]
+    if not bad.empty:
+        raise AssertionError(
+            f"V-EV2 FAIL: {len(bad)} live_actionable rows have net_ev_per_share <= 0. "
+            f"Sample: {bad['correlation_id'].head(3).tolist()}"
+        )
+
+
 def run_all() -> None:
     """Run all invariant checks against the live database."""
     cfg = config.load()
@@ -101,6 +139,29 @@ def run_all() -> None:
         print("V7 PASS")
     else:
         print("V4/V6/V7: no filled trades to check")
+
+    signal_cols = _table_columns("signals")
+    ev_cols = {
+        "correlation_id",
+        "actionability",
+        "gross_edge_per_share",
+        "entry_fees_per_share",
+        "expected_slippage_per_share",
+        "latency_haircut_per_share",
+        "net_ev_per_share",
+    }
+    if ev_cols.issubset(signal_cols):
+        df_ev = pd.DataFrame(db.query(
+            "SELECT correlation_id, actionability, gross_edge_per_share, "
+            "entry_fees_per_share, expected_slippage_per_share, latency_haircut_per_share, net_ev_per_share "
+            "FROM signals WHERE decision = 'emitted'"
+        ))
+        assert_ev1(df_ev)
+        print("V-EV1 PASS")
+        assert_ev2(df_ev)
+        print("V-EV2 PASS")
+    else:
+        print("V-EV1/V-EV2: skipped (EV columns not present)")
 
     print("All invariants PASS")
 
