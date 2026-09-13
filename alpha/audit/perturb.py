@@ -54,9 +54,12 @@ if __name__ == "__main__":
     base = base[base.arm == "fvg"].sort_values("entry_ts").reset_index(drop=True)
     print(f"base run: {len(base)} fvg trades\n")
 
-    cols = ["entry_ts", "exit_ts", "direction", "r"]
-    cols = [c for c in cols if c in base.columns]
-    print(f"comparing on: {cols}\n")
+    # Entry-side fields only: a trade entered before the cut may legitimately
+    # exit after it, so its exit and P&L are allowed to differ. Everything that
+    # was decided AT entry must not.
+    ecols = [c for c in ("entry_ts", "entry_idx", "direction", "stop_pct",
+                         "pd_pos", "mfi", "bars_to_fill") if c in base.columns]
+    print(f"comparing on: {ecols}\n")
     print(f"{'cut %':>7}{'trades before cut':>20}{'identical':>12}{'VERDICT':>12}")
     ok_all = True
     for frac in (0.30, 0.45, 0.60, 0.75, 0.90):
@@ -67,9 +70,6 @@ if __name__ == "__main__":
             continue
         pert = pert[pert.arm == "fvg"].sort_values("entry_ts").reset_index(drop=True)
 
-        # A trade entered before the cut may legitimately EXIT after it, so only
-        # its entry-side fields are required to match; exits are excluded.
-        ecols = [c for c in cols if c != "exit_ts" and c != "r"]
         a = base[base.entry_ts < cut_ts][ecols].reset_index(drop=True)
         b = pert[pert.entry_ts < cut_ts][ecols].reset_index(drop=True)
         same = len(a) == len(b) and a.equals(b)
