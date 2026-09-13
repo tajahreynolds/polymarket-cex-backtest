@@ -18,6 +18,7 @@ class CostModel:
     # One-way cost applied to traded notional: half-spread + market impact.
     spread_bps: float = 5.0
     commission_bps: float = 0.0
+    borrow_spread_bps: float = 50.0   # paid over the short rate on negative cash
 
     @property
     def rate(self) -> float:
@@ -39,7 +40,8 @@ def run(panel: dict[str, pd.DataFrame],
         rf_daily: pd.Series,
         costs: CostModel = CostModel(),
         start: str | None = None,
-        end: str | None = None) -> BacktestResult:
+        end: str | None = None,
+        max_gross: float = 1.0) -> BacktestResult:
     """`targets` holds weights decided at each row's close; rows may be sparse
     (only rebalance dates need to appear). Any weight not allocated is cash."""
     close = panel["close"]
@@ -85,7 +87,7 @@ def run(panel: dict[str, pd.DataFrame],
             on = np.where(np.isfinite(o[i]) & np.isfinite(prev_c) & (prev_c > 0),
                           o[i] / prev_c, 1.0)
         h = h * np.nan_to_num(on, nan=1.0)
-        cash *= (1.0 + rfd[i])
+        cash *= (1.0 + rfd[i] + (costs.borrow_spread_bps / 1e4 / 252.0 if cash < 0 else 0.0))
 
         v = h.sum() + cash
 
@@ -95,8 +97,8 @@ def run(panel: dict[str, pd.DataFrame],
             w = np.nan_to_num(pending, nan=0.0)
             w = np.where(tr[i] & np.isfinite(o[i]), w, 0.0)
             gross = np.abs(w).sum()
-            if gross > 1.0 + 1e-9:      # never lever beyond the declared cap
-                w = w / gross
+            if gross > max_gross + 1e-9:   # never lever beyond the declared cap
+                w = w * (max_gross / gross)
             tgt_h = w * v
             trades = tgt_h - h
             traded = np.abs(trades).sum()
