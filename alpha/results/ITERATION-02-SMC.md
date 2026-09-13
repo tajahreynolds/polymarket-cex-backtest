@@ -50,10 +50,15 @@ The spread flips sign and the t-stat is nowhere. The pooled result was an
 artifact of wildly unequal cell counts — bullish+premium has 21,990 observations,
 bullish+discount has 1,078 — combined with cross-sectional correlation.
 
-There is also a sign problem the concept does not survive: on the bearish side,
-returns are *higher* in premium (1.23%) than in discount (0.61%), the opposite of
-what the rule prescribes. The two halves of the framework point in opposite
-directions.
+**Correction to an earlier draft of this note.** It claimed the bearish row was a
+sign problem, on the grounds that returns are higher in premium (1.23%) than in
+discount (0.61%). That was a misreading of the framework. In a downtrend,
+"discount" means catching a falling knife, so premium outperforming discount on
+the bearish side is the expected shape, not a contradiction. The critique is
+withdrawn; it was never load-bearing.
+
+What the result rests on is the bullish+discount cell alone — the one the concept
+actually says to trade — and that is where the clustering test above kills it.
 
 ## Conclusion
 

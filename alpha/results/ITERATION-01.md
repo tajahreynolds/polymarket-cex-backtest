@@ -1,3 +1,7 @@
+> **Superseded by ITERATION-03-SURVIVORSHIP.md.** The numbers below use a
+> hand-picked universe and equal weighting. Correcting both cuts the ensemble
+> Sharpe from 0.70 to 0.42. Kept for the cost-sensitivity work, which stands.
+
 # Iteration 1 — backlog swept on the development window
 
 Development window **2005-03 → 2012-12** (GFC included). Holdout 2013-01 → 2017-11

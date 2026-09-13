@@ -48,3 +48,27 @@ if __name__ == "__main__":
     print(counts.groupby(counts.index.year).mean().round(1).to_string())
     r = rf_daily(c.index)
     print(f"rf daily mean {r.mean()*252:.4%} ann; missing={r.isna().sum()}")
+
+
+# ------------------------------------------- full 1,320-ETF point-in-time panel
+WIDE = ROOT / "data" / "wide"
+
+
+def load_wide() -> dict[str, pd.DataFrame]:
+    p = {f: pd.read_parquet(WIDE / f"{f}.parquet").astype("float64")
+         for f in ("open", "high", "low", "close", "volume")}
+    p["tradable"] = p["close"].notna() & (p["volume"].fillna(0) > 0)
+    return p
+
+
+def eligible(panel, min_dollar_vol=10e6, min_history=252, adv_window=60):
+    """Point-in-time investability: enough history to compute a signal, and
+    enough traded value to actually fill. Uses only data up to each date.
+
+    Note dollar volume is computed on dividend-adjusted prices, so it understates
+    true notional in early years by the cumulative dividend factor (~14% for SPY
+    in 2005). The screen is therefore slightly stricter the further back you go.
+    """
+    dv = (panel["close"] * panel["volume"]).rolling(adv_window, min_periods=adv_window // 2).median()
+    age = panel["tradable"].cumsum()
+    return (dv >= min_dollar_vol) & (age >= min_history) & panel["tradable"]

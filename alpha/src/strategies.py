@@ -10,6 +10,38 @@ def _rebal_index(cal, freq):
     return S.month_ends(cal) if freq == "M" else S.week_ends(cal)
 
 
+def risk_size(panel, picks, vol_target=0.12, vol_window=60, vol_floor=0.05,
+              max_gross=1.0, cov_window=126):
+    """Turn a boolean selection into weights sized by inverse volatility, then
+    scale the book to a target portfolio volatility.
+
+    Equal-weighting only works when the candidates carry similar risk. Across a
+    universe that contains 1x, 2x, 3x and inverse funds it is meaningless - a 3x
+    fund simply gets three times the exposure of its own underlying. Inverse-vol
+    sizing neutralises that automatically: the 3x fund earns a third of the
+    weight, so the leverage in the wrapper stops mattering.
+    """
+    vol = S.yang_zhang(panel, vol_window).clip(lower=vol_floor)
+    idx = picks.index
+    inv = (1.0 / vol).reindex(idx)[picks.columns].where(picks).fillna(0.0)
+    raw = inv.div(inv.sum(axis=1).replace(0, np.nan), axis=0).fillna(0.0)
+
+    rets = panel["close"].pct_change()
+    out = []
+    for d in idx:
+        wd = raw.loc[d]
+        live = wd[wd != 0].index
+        if len(live) == 0:
+            out.append(wd * 0.0)
+            continue
+        hist = rets.loc[:d, live].tail(cov_window)
+        cov = hist.cov().fillna(0.0).to_numpy() * 252
+        v = wd[live].to_numpy()
+        pv = float(np.sqrt(max(v @ cov @ v, 1e-8)))
+        out.append(wd * min(vol_target / pv, max_gross / max(wd.abs().sum(), 1e-9)))
+    return _normalise(pd.DataFrame(out, index=idx), max_gross)
+
+
 def _normalise(w, max_gross):
     g = w.abs().sum(axis=1).replace(0, np.nan)
     scale = (max_gross / g).clip(upper=1.0).fillna(0.0)
@@ -46,7 +78,8 @@ def dual_momentum(panel, risky=("SPY", "EFA"), safe="AGG", lookback=252, freq="M
 
 # ------------------------------------------------------------- core research
 def xsmom(panel, top_k=8, lookbacks=(63, 126, 252), skip=5, freq="M",
-          trend_filter=True, sma=200, universe=None):
+          trend_filter=True, sma=200, universe=None, weighting="ew",
+          vol_target=0.12, max_gross=1.0):
     """Cross-sectional momentum: hold the top-k ETFs by blended momentum,
     equally weighted, and only those also in an uptrend."""
     cal = panel["close"].index
@@ -63,8 +96,11 @@ def xsmom(panel, top_k=8, lookbacks=(63, 126, 252), skip=5, freq="M",
     w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
     ranks = score.rank(axis=1, ascending=False)
     picks = (ranks <= top_k) & score.notna()
-    n = picks.sum(axis=1).replace(0, np.nan)
-    sel = picks.div(n, axis=0).fillna(0.0)
+    if weighting == "invvol":
+        sel = risk_size(panel, picks, vol_target=vol_target, max_gross=max_gross)
+    else:
+        n = picks.sum(axis=1).replace(0, np.nan)
+        sel = picks.div(n, axis=0).fillna(0.0)
     w[sel.columns] = sel
     return w
 
@@ -116,7 +152,7 @@ def vol_managed(panel, ticker="QQQ", vol_target=0.15, vol_window=20, freq="M",
 
 def liquidity_provision(panel, universe, top_k=5, window=5, freq="W",
                         require_capitulation=True, vol_gate=None, max_gross=1.0,
-                        hold_periods=1):
+                        hold_periods=1, weighting="ew", vol_target=0.12):
     """Buy the ETFs that just sold off hardest on capitulation-shaped bars, hold
     one period. This is the cash-market version of fading a liquidation cascade."""
     cal = panel["close"].index
@@ -130,8 +166,11 @@ def liquidity_provision(panel, universe, top_k=5, window=5, freq="W",
     w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
     ranks = rev.rank(axis=1, ascending=False)
     picks = (ranks <= top_k) & rev.notna() & (rev > 0)
-    n = picks.sum(axis=1).replace(0, np.nan)
-    sel = picks.div(n, axis=0).fillna(0.0) * max_gross
+    if weighting == "invvol":
+        sel = risk_size(panel, picks, vol_target=vol_target, max_gross=max_gross)
+    else:
+        n = picks.sum(axis=1).replace(0, np.nan)
+        sel = picks.div(n, axis=0).fillna(0.0) * max_gross
     if vol_gate is not None:
         gate = (S.yang_zhang(panel, 20)["SPY"].reindex(idx) > vol_gate).astype(float)
         sel = sel.mul(gate, axis=0)
