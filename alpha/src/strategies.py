@@ -315,3 +315,57 @@ def trend_core(panel, assets=("QQQ", "SPY", "EFA", "TLT", "GLD"), sma=200,
         return risk_size(panel, on, vol_target=vol_target, max_gross=1.0)
     n = on.sum(axis=1).replace(0, np.nan)
     return on.div(n, axis=0).fillna(0.0)
+
+
+def diversified_trend(panel, universe, lookbacks=(21, 63, 126, 252), freq="M",
+                      vol_target=0.12, vol_window=60, max_gross=1.0,
+                      band=0.0, allow_short=False, cov_window=126):
+    """Trend following in the institutional shape rather than the chart shape.
+
+    Every asset carries its own weak signal - the average sign of returns over
+    several lookbacks - and the portfolio is sized by inverse volatility and
+    scaled to a constant target vol. The edge is meant to come from breadth and
+    sizing, not from any one entry being good.
+
+    `band` is a no-trade threshold: weights move only when the target has drifted
+    further than this from the current book. Turnover is what decides whether a
+    strategy can be levered, so it is a first-class parameter here, not an
+    afterthought.
+    """
+    cal = panel["close"].index
+    idx = _rebal_index(cal, freq)
+    c = panel["close"]
+
+    sig = sum(np.sign(c / c.shift(lb) - 1.0) for lb in lookbacks) / len(lookbacks)
+    sig = sig[universe].where(panel["tradable"][universe])
+    if not allow_short:
+        sig = sig.clip(lower=0.0)
+
+    vol = S.yang_zhang(panel, vol_window).clip(lower=0.05)[universe]
+    raw = (sig / vol).reindex(idx).fillna(0.0)
+    gross = raw.abs().sum(axis=1).replace(0, np.nan)
+    raw = raw.div(gross, axis=0).fillna(0.0)
+
+    rets = c.pct_change()
+    out, prev = [], None
+    for d in idx:
+        wd = raw.loc[d]
+        live = wd[wd != 0].index
+        if len(live) == 0:
+            wd = wd * 0.0
+        else:
+            hist = rets.loc[:d, live].tail(cov_window)
+            cov = hist.cov().fillna(0.0).to_numpy() * 252
+            v = wd[live].to_numpy()
+            pv = float(np.sqrt(max(v @ cov @ v, 1e-8)))
+            wd = wd * min(vol_target / pv, max_gross / max(wd.abs().sum(), 1e-9))
+        if prev is not None and band > 0:
+            drift = (wd - prev).abs()
+            wd = wd.where(drift > band, prev)      # leave small deviations alone
+        prev = wd
+        out.append(wd)
+
+    w = pd.DataFrame(0.0, index=idx, columns=c.columns)
+    sel = pd.DataFrame(out, index=idx)
+    w[sel.columns] = sel
+    return _normalise(w, max_gross)
