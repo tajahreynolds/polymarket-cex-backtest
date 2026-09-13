@@ -19,6 +19,7 @@ class CostModel:
     spread_bps: float = 5.0
     commission_bps: float = 0.0
     borrow_spread_bps: float = 50.0   # paid over the short rate on negative cash
+    short_borrow_bps: float = 50.0    # annual stock-loan fee on short market value
 
     @property
     def rate(self) -> float:
@@ -88,6 +89,10 @@ def run(panel: dict[str, pd.DataFrame],
                           o[i] / prev_c, 1.0)
         h = h * np.nan_to_num(on, nan=1.0)
         cash *= (1.0 + rfd[i] + (costs.borrow_spread_bps / 1e4 / 252.0 if cash < 0 else 0.0))
+        # stock-loan fee on shorts: a short book is not free money
+        short_mv = -h[h < 0].sum()
+        if short_mv > 0:
+            cash -= short_mv * costs.short_borrow_bps / 1e4 / 252.0
 
         v = h.sum() + cash
 

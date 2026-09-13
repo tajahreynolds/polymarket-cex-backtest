@@ -236,3 +236,82 @@ def smc_single(panel, ticker="SPY", k=5, discount=0.5, freq="W", max_gross=1.0):
     w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
     w[ticker] = on * max_gross
     return w
+
+
+def smc_long_short(panel, universe, k=10, zone=0.382, freq="W", top_k=5,
+                   side="both", max_gross=1.0, weighting="invvol", vol_target=0.12):
+    """The symmetric version of the concept: long in discount while structure is
+    bullish, short in premium while structure is bearish.
+
+    The earlier note only tested the long leg, which is half the framework. If
+    the premium/discount idea is real the short leg should carry its own weight.
+    """
+    cal = panel["close"].index
+    idx = _rebal_index(cal, freq)
+    pos, _, _ = S.dealing_range(panel, k)
+    st = S.market_structure(panel, k)
+    ok = panel["tradable"][universe]
+
+    longs = (pos[universe] <= zone) & (st[universe] > 0) & ok
+    shorts = (pos[universe] >= 1 - zone) & (st[universe] < 0) & ok
+
+    def side_weights(mask, sign):
+        score = (-pos[universe] if sign > 0 else pos[universe]).where(mask).reindex(idx)
+        ranks = score.rank(axis=1, ascending=False)
+        picks = (ranks <= top_k) & score.notna()
+        if weighting == "invvol":
+            sized = risk_size(panel, picks, vol_target=vol_target, max_gross=max_gross)
+        else:
+            n = picks.sum(axis=1).replace(0, np.nan)
+            sized = picks.div(n, axis=0).fillna(0.0) * max_gross
+        return sized * sign
+
+    w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
+    total = None
+    if side in ("both", "long"):
+        total = side_weights(longs, +1)
+    if side in ("both", "short"):
+        sw = side_weights(shorts, -1)
+        total = sw if total is None else total.add(sw, fill_value=0.0)
+    if side == "both":
+        total = total / 2.0          # half the book to each leg
+    w[total.columns] = total
+    return _normalise(w, max_gross)
+
+
+def core_satellite(panel, core, sleeves, max_gross=1.0):
+    """Put the satellites' unused capital to work in a core rather than cash.
+
+    The selective sleeves are flat most of the time - that idle cash is a pure
+    drag on absolute return even when it flatters Sharpe. This routes whatever
+    gross the sleeves are not using into a core allocation, so the book stays
+    fully invested without ever exceeding the gross cap.
+    """
+    idx = pd.DatetimeIndex(sorted(set().union(
+        *[w.index for w in list(sleeves.values()) + [core]])))
+    total = None
+    for w in sleeves.values():
+        ww = w.reindex(idx).ffill().fillna(0.0)
+        total = ww if total is None else total.add(ww, fill_value=0.0)
+    if total is None:
+        total = pd.DataFrame(0.0, index=idx, columns=core.columns)
+
+    used = total.abs().sum(axis=1)
+    residual = (max_gross - used).clip(lower=0.0)
+    c = core.reindex(idx).ffill().fillna(0.0)
+    cg = c.abs().sum(axis=1).replace(0, np.nan)
+    c = c.div(cg, axis=0).fillna(0.0).mul(residual, axis=0)
+    return total.add(c, fill_value=0.0)
+
+
+def trend_core(panel, assets=("QQQ", "SPY", "EFA", "TLT", "GLD"), sma=200,
+               freq="M", vol_target=0.14, weighting="invvol"):
+    """A core that stays invested while trends hold: hold each asset above its
+    long moving average, sized by inverse volatility."""
+    cal = panel["close"].index
+    idx = _rebal_index(cal, freq)
+    on = (S.sma_trend(panel, sma) & panel["tradable"])[list(assets)].reindex(idx).fillna(False)
+    if weighting == "invvol":
+        return risk_size(panel, on, vol_target=vol_target, max_gross=1.0)
+    n = on.sum(axis=1).replace(0, np.nan)
+    return on.div(n, axis=0).fillna(0.0)
