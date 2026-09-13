@@ -82,3 +82,41 @@ def week_ends(cal):
     s = pd.Series(cal, index=cal)
     iso = cal.isocalendar()
     return pd.DatetimeIndex(s.groupby([iso.year.values, iso.week.values]).max().values).sort_values()
+
+
+# ---------------------------------------------------- smart-money structure
+def swing_points(panel, k=5):
+    """Fractal swing highs/lows, each usable only from the bar that CONFIRMS it.
+
+    A swing high at bar t needs k bars on both sides, so it is not knowable until
+    bar t+k. Centring the window and reading it at bar t is the single most common
+    way an SMC backtest lies to itself; the `.shift(k)` below is what prevents it.
+    """
+    h, l = panel["high"], panel["low"]
+    win = 2 * k + 1
+    is_high = h == h.rolling(win, center=True).max()
+    is_low = l == l.rolling(win, center=True).min()
+
+    # value of the swing, stamped at the bar where it becomes observable
+    sh = h.where(is_high).shift(k).ffill()
+    sl = l.where(is_low).shift(k).ffill()
+    return sh, sl
+
+
+def dealing_range(panel, k=5):
+    """Where price sits inside the last confirmed swing range.
+    0 = at the low (deep discount), 1 = at the high (deep premium)."""
+    sh, sl = swing_points(panel, k)
+    rng = (sh - sl).where(lambda x: x > 0)
+    return ((panel["close"] - sl) / rng).clip(0, 1), sh, sl
+
+
+def market_structure(panel, k=5):
+    """+1 once price closes above the last confirmed swing high (break of
+    structure up), -1 once it closes below the last confirmed swing low."""
+    sh, sl = swing_points(panel, k)
+    c = panel["close"]
+    up, dn = c > sh, c < sl
+    st = pd.DataFrame(np.nan, index=c.index, columns=c.columns)
+    st = st.mask(up, 1.0).mask(dn, -1.0)
+    return st.ffill()

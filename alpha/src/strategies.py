@@ -153,3 +153,47 @@ def combine(parts: dict[str, tuple[pd.DataFrame, float]], cal) -> pd.DataFrame:
         ww = w.reindex(idx).ffill().fillna(0.0) * alloc
         total = ww if total is None else total.add(ww, fill_value=0.0)
     return total
+
+
+def smc_premium_discount(panel, universe, k=5, discount=0.382, freq="W",
+                         top_k=5, require_bullish=True, max_gross=1.0):
+    """Smart-money concepts, made testable.
+
+    Hold assets whose structure is bullish (price has taken out the last
+    CONFIRMED swing high) while price sits in the discount half of the current
+    dealing range. Everything is lagged to the bar that confirms it, so no swing
+    is used before it could have been drawn on a live chart.
+    """
+    cal = panel["close"].index
+    idx = _rebal_index(cal, freq)
+    pos, _, _ = S.dealing_range(panel, k)
+    st = S.market_structure(panel, k)
+
+    ok = (pos[universe] <= discount)
+    if require_bullish:
+        ok &= (st[universe] > 0)
+    ok &= panel["tradable"][universe]
+
+    # deepest discount first when more names qualify than slots
+    score = (-pos[universe]).where(ok).reindex(idx)
+    ranks = score.rank(axis=1, ascending=False)
+    picks = (ranks <= top_k) & score.notna()
+    n = picks.sum(axis=1).replace(0, np.nan)
+    sel = picks.div(n, axis=0).fillna(0.0) * max_gross
+
+    w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
+    w[sel.columns] = sel
+    return w
+
+
+def smc_single(panel, ticker="SPY", k=5, discount=0.5, freq="W", max_gross=1.0):
+    """Single-asset version: long only while structure is bullish and price is in
+    discount, otherwise cash."""
+    cal = panel["close"].index
+    idx = _rebal_index(cal, freq)
+    pos, _, _ = S.dealing_range(panel, k)
+    st = S.market_structure(panel, k)
+    on = ((pos[ticker] <= discount) & (st[ticker] > 0)).reindex(idx).astype(float)
+    w = pd.DataFrame(0.0, index=idx, columns=panel["close"].columns)
+    w[ticker] = on * max_gross
+    return w

@@ -95,7 +95,9 @@ def run(panel: dict[str, pd.DataFrame],
         traded = 0.0
         if pending is not None:
             w = np.nan_to_num(pending, nan=0.0)
-            w = np.where(tr[i] & np.isfinite(o[i]), w, 0.0)
+            # tradability as known at the DECISION close (i-1), not day i's
+            # volume, which a trader placing an open order cannot yet see.
+            w = np.where(tr[i - 1] & np.isfinite(o[i]), w, 0.0)
             gross = np.abs(w).sum()
             if gross > max_gross + 1e-9:   # never lever beyond the declared cap
                 w = w * (max_gross / gross)
